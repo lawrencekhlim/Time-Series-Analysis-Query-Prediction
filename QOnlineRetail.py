@@ -2,8 +2,8 @@ import csv
 from QLearn import QLearn
 from Model import NaiveModel, EarliestModel
 from AverageModel import AverageModel
-from RNNModel import RNNModel
-from GRUModel import GRUModel
+#from RNNModel import RNNModel
+#from GRUModel import GRUModel
 
 class QOnlineRetail:
     def __init__ (self):
