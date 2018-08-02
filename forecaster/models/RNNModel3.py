@@ -58,7 +58,7 @@ class RNNModel:
 
     def train (self, x_train, y_train, x_val, y_val, save=True):
         BATCH_SIZE=1
-        total_epochs = 100
+        total_epochs = 10000
         epochs_per_round = 20
         rounds = int (total_epochs/epochs_per_round)
         
