@@ -1,7 +1,8 @@
 import csv
-from models import QLearn
-from models import NaiveModel, EarliestModel
-from models import AverageModel
+from models.QLearn import QLearn
+from models.NaiveModel import NaiveModel
+from models.EarliestModel import EarliestModel
+from models.AverageModel import AverageModel
 #from RNNModel import RNNModel
 #from GRUModel import GRUModel
 
@@ -13,8 +14,9 @@ class QOnlineRetail:
         self.testing = (0.8, 1)
         self.data_size = 7
         
-        
-        with open ('timeseriesOnlineRetailCleaned2.csv', 'r') as f:
+        self.num_queries = 200
+        #with open ('timeseriesOnlineRetailCleaned2.csv', 'r') as f:
+        with open ('../data/randomizedOnlineRetail.csv', 'r' ) as f:
             reader = csv.reader(f, delimiter=',')
             title_row = True
             for row in reader:
@@ -22,10 +24,10 @@ class QOnlineRetail:
                     self.products = row
                     title_row = False
                 else:
-                    integer_data = [int(i) for i in row]
+                    integer_data = [int(row[i]) for i in range (self.num_queries)]
                     self.data.append (integer_data)
         #print (self.data)
-        self.predictor1 = QLearn(threshold=0.5, regularization=True)
+        self.predictor1 = QLearn(threshold=0.5, svd=True, regularization=True)
         #self.predictor2 = GRUModel ()
         self.baseline1 = NaiveModel()
         self.baseline2 = EarliestModel()
@@ -123,7 +125,7 @@ class QOnlineRetail:
         
         print ()
         print ("Linear Algebra Model")
-        self.predictor1.try_ktruncations (input,output)
+        #self.predictor1.try_ktruncations (input,output)
         self.predictor1.test_model (input, output, verbose=False)
         #self.predictor1.print_concepts()
         

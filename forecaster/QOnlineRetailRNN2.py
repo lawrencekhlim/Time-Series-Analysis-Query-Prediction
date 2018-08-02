@@ -20,11 +20,11 @@ class QOnlineRetail:
         self.data = []
         self.training = (0, 0.6)
         self.validation = (0.6, 0.8)
-        self.testing = (0.8, 1)
+        self.testing = (0.8, 0.95)
         #self.data_size = 24
         self.data_size = 7
         
-        self.num_queries = 2000
+        self.num_queries = 10
         # q = 1, epochs = 100
         # q = 5, epochs = 20
         # q = 100, epochs = 10
@@ -45,7 +45,7 @@ class QOnlineRetail:
         self.predictor1 = QLearn(threshold=0.5, regularization=True)
         self.baseline1 = NaiveModel()
         self.baseline2 = EarliestModel()
-        self.predictor3 = RNNModel(self.num_queries)
+        self.predictor3 = RNNModel(self.num_queries, rnn_type="LSTM", optimizer_type="sgd", learning_rate=0.001, layers=1, hidden_size=128, recurrent_dropout=0.2)
         #self.baseline3 = AverageModel(threshold=0.75, regularization=True)
     
    

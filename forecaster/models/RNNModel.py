@@ -2,17 +2,20 @@
 import numpy as np
 import keras.layers as L
 import keras.models as M
+from keras.models import load_model
 import keras.optimizers as O
 from keras import Input
 
-
+import gc
+import os
+import datetime
 import pickle
 import matplotlib.pyplot as plt
 
-RESULTS_FOLDER = "../results/"
+RESULTS_FOLDER = "/Users/LawrenceLim/Documents/Programming/CleanedResearch/results/"
 
 class RNNModel:
-    def __init__(self,  num_queries, rnn_type="LSTM", optimizer_type="adam", learning_rate=0.001):
+    def __init__(self,  num_queries, rnn_type="LSTM", optimizer_type="adam", learning_rate=0.001, layers=2, hidden_size=32, recurrent_dropout=0.2):
         
         self.RNN_TYPE = rnn_type
         if self.RNN_TYPE == "LSTM":
@@ -32,8 +35,8 @@ class RNNModel:
             opt = O.RMSprop (lr=self.LEARNING_RATE)
 
         
-        self.HIDDEN_SIZE = 1024 # 4, 16, 32
-        self.LAYERS = 1 # 1, 2, 4, layers
+        self.HIDDEN_SIZE = hidden_size # 4, 16, 32
+        self.LAYERS = layers # 1, 2, 4, layers
         self.NUM_QUERIES = num_queries
 
         #lr = 0.001 or 0.01
@@ -41,15 +44,15 @@ class RNNModel:
         #print (input_shape)
         
         input = Input(shape=(None, num_queries))
-        x = RNN (self.HIDDEN_SIZE, return_sequences=True) (input)
+        x = RNN (self.HIDDEN_SIZE, return_sequences=True, recurrent_dropout=recurrent_dropout) (input)
         for _ in range (self.LAYERS-1):
-            x = RNN (self.HIDDEN_SIZE, return_sequences=True) (x)
+            x = RNN (self.HIDDEN_SIZE, return_sequences=True, recurrent_dropout=recurrent_dropout) (x)
         query_prediction = []
         for i in range (0, num_queries):
             query_prediction.append (L.Dense(2,  activation='softmax', name=str(i))(x))
         self.model = M.Model (input, query_prediction)
         
-        self.model.compile (optimizer='sgd', loss=['categorical_crossentropy' for i in range (num_queries)])
+        self.model.compile (optimizer=opt, loss=['categorical_crossentropy' for i in range (num_queries)])
         
         self.model.summary ()
         
@@ -57,35 +60,65 @@ class RNNModel:
 
     def train (self, x_train, y_train, x_val, y_val, save=True):
         BATCH_SIZE=1
+        total_epochs = 20000
+        epochs_per_round = 20
+        rounds = int (total_epochs/epochs_per_round)
         
+        timestr = datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
+        dir_arr = [str(self.NUM_QUERIES) +"Qs", self.RNN_TYPE,str (self.LAYERS)+"L", str (self.HIDDEN_SIZE)+"HS",self.OPTIMIZER_TYPE +"-"+str(self.LEARNING_RATE)+"lr", timestr]
         
-        
+        dir_path = RESULTS_FOLDER
+        for path in dir_arr:
+            dir_path = os.path.join (dir_path, path)
+            if not os.path.exists (dir_path):
+                os.mkdir (dir_path)
+
+        history_dict = {}
+        for i in range (rounds):
+            print ("Epochs: " + str ((i)*epochs_per_round))
+            history = self.model.fit (x_train, y_train, batch_size=BATCH_SIZE, epochs=epochs_per_round, validation_data=(x_val, y_val))
+            
+            
+            
+            self.model.save(os.path.join(dir_path, str((i+1)*epochs_per_round)+"epochs.h5" ))
+                
+                
+            for key in history.history.keys():
+                if not key in history_dict:
+                    history_dict[key] = history.history[key]
+                else:
+                    history_dict[key] += history.history[key]
+            
+            if ((i+1)%10 == 0):
+                file_name = os.path.join(dir_path, str((i+1)*epochs_per_round) +"history.pkl")
+                f = open (file_name, "wb")
+                pickle.dump (history_dict, f)
+                f.close()
+            
+        """
         history = self.model.fit(x_train, y_train,
                     batch_size=BATCH_SIZE,
-                    epochs=100,
+                    epochs=150,
                     validation_data=(x_val, y_val))
-
+        history_dict = history.history
+        """
+                                      
         if save:
-            history_dict = history.history
         
-            file_name = RESULTS_FOLDER + str(self.NUM_QUERIES) +"Qs-"+ self.RNN_TYPE + "-" + str (self.LAYERS)+"L-" + str (self.HIDDEN_SIZE)+"HS-"+self.OPTIMIZER_TYPE +"-"+str(self.LEARNING_RATE)+"lr"  +".pkl"
+            file_name = os.path.join(dir_path, "history.pkl")
             f = open (file_name, "wb")
             pickle.dump (history_dict, f)
             f.close()
-    
+        
+        del history
         #self.predict (x_val)
+    
     
     def predict (self, input):
         out = self.model.predict (input)
-        #print (out)
         return self.decode (out)
                         
     def decode (self, encoded):
-        #print (self.NUM_QUERIES)
-        #print (len (encoded))
-        #print (len (encoded[0]))
-        #print (len (encoded[0][0]))
-        #print (len (encoded[0][0][0]))
         decode = [[[0 for q in range (len (encoded))] for i in range (len (encoded[0][0]))] for j in range (len (encoded[0]))]
         for j in range (len (encoded[0])):
             for i in range (len (encoded[0][0])):
@@ -93,6 +126,13 @@ class RNNModel:
                     if encoded[q][j][i][1] >= 0.5:
                         decode[j][i][q] = 1
         return decode
+    
+    def delete_model (self):
+        del self.model
+        gc.collect()
+    
+    def load_model (self, path):
+        self.model = load_model (path)
 
     def test_model (self, input, output):
         total_l2_error = 0
